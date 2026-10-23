@@ -9,8 +9,27 @@
 </head>
 
 <body>
-  <h1 class="text-3xl font-bold text-indigo-600"> Tailwind works</h1>
-  <div id="app"></div>
+  <div class="flex h-screen">
+
+      <aside class="w-1/2 p-6 overflow-y-auto bg-white border-r border-slate-200">
+        <h1 class="text-3xl font-bold text-indigo-600  transition hover:shadow-xl hover:-translate-y-1">Card Builder</h1>
+        <h2>لوحة التحكم</h2>
+        <label for="title-input">العنوان</label>
+        <input class="focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" type="text" id="title-input" placeholder="اكتب العنوان..." />
+        <label for="desc-input">الوصف</label>
+        <textarea class="focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" id="desc-input" rows="3" placeholder="اكتب الوصف..."></textarea>
+        <label for="bg-color">لون الخلفية</label>
+        <input class="focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" type="color" id="bg-color" value="#6366f1" />
+      </aside>
+
+      <main class="w-1/2 flex items-center justify-center bg-slate-100">
+        <div class="card bg-indigo-500 text-white p-6 rounded-2xl shadow-lg w-80" id="card">
+          <h2 class="text-2xl font-bold mb-2" id="card-title">عنوان الكارت</h2>
+          <p class="opacity-90" id="card-desc">هنا يظهر وصف الكارت</p>
+        </div>
+      </main>
+
+    </div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 

@@ -1,4 +1,6 @@
 import "./style.css";
+import { state } from "./state";
+
 const titleInput = document.getElementById ("title-input") as HTMLInputElement;
 const cardTitle = document.getElementById ("card-title") as HTMLElement; 
 const descInput = document.getElementById("desc-input") as HTMLTextAreaElement;
@@ -7,8 +9,21 @@ const card = document.getElementById("card") as HTMLElement;
 const cardDesc = document.getElementById("card-desc") as HTMLElement;
 
 
-titleInput.addEventListener ("input", function () {
-cardTitle.textContent = titleInput.value;});
+
+
+function render (): void{
+  cardTitle.textContent = state.title;
+   cardDesc.textContent = state.description;
+  card.style.backgroundColor = state.color;
+}
+render();
+
+
+
+titleInput.addEventListener("input", () => {
+  state.title = titleInput.value;
+  render();
+});
 descInput.addEventListener("input",()=> {
     cardDesc.textContent = descInput.value;
 });

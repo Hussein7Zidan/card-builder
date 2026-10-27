@@ -2,31 +2,48 @@ import "./style.css";
 import { state } from "./state";
 
 const titleInput = document.getElementById ("title-input") as HTMLInputElement;
-const cardTitle = document.getElementById ("card-title") as HTMLElement; 
+
 const descInput = document.getElementById("desc-input") as HTMLTextAreaElement;
 const colorInput = document.getElementById("bg-color") as HTMLInputElement;
 const card = document.getElementById("card") as HTMLElement;
-const cardDesc = document.getElementById("card-desc") as HTMLElement;
 
 
 
 
-function render (): void{
-  cardTitle.textContent = state.title;
-   cardDesc.textContent = state.description;
-  card.style.backgroundColor = state.color;
+function render(): void {
+  card.style.backgroundColor = state.canvasColor;
+  card.replaceChildren();
+
+  for (const element of state.elements) {
+    const node = document.createElement("div");
+    node.textContent = element.text;
+    node.className = "absolute";
+    node.style.left = `${element.x}px`;
+    node.style.top = `${element.y}px`;
+    node.style.color = element.color;
+    card.appendChild(node);
+  }
 }
 render();
 
 
 
-titleInput.addEventListener("input", () => {
-  state.title = titleInput.value;
+function updateText(id: number, value: string): void {
+  const element = state.elements.find((el) => el.id === id);
+  if (!element) return;
+  element.text = value;
   render();
+}
+
+titleInput.addEventListener("input", () => {
+  updateText(1, titleInput.value);
 });
-descInput.addEventListener("input",()=> {
-    cardDesc.textContent = descInput.value;
+
+descInput.addEventListener("input", () => {
+  updateText(2, descInput.value);
 });
+
 colorInput.addEventListener("input", () => {
-  card.style.backgroundColor = colorInput.value;
+  state.canvasColor = colorInput.value;
+  render();
 });

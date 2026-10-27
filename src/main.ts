@@ -11,16 +11,27 @@ const card = document.getElementById("card") as HTMLElement;
 
 
 function render(): void {
+function render(): void {
   card.style.backgroundColor = state.canvasColor;
   card.replaceChildren();
 
   for (const element of state.elements) {
     const node = document.createElement("div");
     node.textContent = element.text;
-    node.className = "absolute";
+    node.className = "absolute cursor-pointer rounded px-1"; // جديد
     node.style.left = `${element.x}px`;
     node.style.top = `${element.y}px`;
     node.style.color = element.color;
+
+    if (element.id === state.selectedId) {                    
+      node.classList.add("ring-2", "ring-white");            
+    }                                                          
+
+    node.addEventListener("click", () => {              
+      state.selectedId = element.id;                          
+      render();                                             
+    });                                                       
+
     card.appendChild(node);
   }
 }

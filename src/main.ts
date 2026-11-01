@@ -13,6 +13,9 @@ type DragInfo = {
 };
 
 let drag: DragInfo | null = null;
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
 
 function render(): void {
   card.style.backgroundColor = state.canvasColor;
@@ -22,6 +25,7 @@ function render(): void {
     const node = document.createElement("div");
     node.textContent = element.text;
     node.className = "absolute cursor-grab select-none touch-none rounded px-1";
+    node.dataset.id = String(element.id);
     node.style.left = `${element.x}px`;
     node.style.top = `${element.y}px`;
     node.style.color = element.color;
@@ -72,15 +76,22 @@ card.addEventListener("pointerdown", (event) => {
   }
 });
 
+
 window.addEventListener("pointermove", (event) => {
   if (!drag) return;
   const current = drag;
   const element = state.elements.find((el) => el.id === current.id);
   if (!element) return;
 
+  const node = card.querySelector<HTMLElement>(`[data-id="${current.id}"]`);
+  if (!node) return;
+
   const rect = card.getBoundingClientRect();
-  element.x = Math.round(event.clientX - rect.left - current.offsetX);
-  element.y = Math.round(event.clientY - rect.top - current.offsetY);
+  const maxX = card.clientWidth - node.offsetWidth;
+  const maxY = card.clientHeight - node.offsetHeight;
+
+  element.x = clamp(Math.round(event.clientX - rect.left - current.offsetX), 0, maxX);
+  element.y = clamp(Math.round(event.clientY - rect.top - current.offsetY), 0, maxY);
   render();
 });
 

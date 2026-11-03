@@ -14,11 +14,17 @@
       <aside class="w-1/2 p-6 overflow-y-auto bg-white border-r border-slate-200">
         <h1 class="text-3xl font-bold text-indigo-600  transition hover:shadow-xl hover:-translate-y-1">Card Builder</h1>
         <h2>لوحة التحكم</h2>
-        <label for="title-input">العنوان</label>
-        <input class="focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" type="text" id="title-input" placeholder="اكتب العنوان..." />
-        <label for="desc-input">الوصف</label>
-        <textarea class="focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" id="desc-input" rows="3" placeholder="اكتب الوصف..."></textarea>
-        <label for="bg-color">لون الخلفية</label>
+        <div class="flex gap-2">
+           <button type="button" id="add-text" class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">+ نص</button>
+  <button type="button" id="add-shape" class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">+ شكل</button>
+  <button type="button" id="delete-btn" class="rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40" disabled>حذف</button>
+</div>
+       <label for="text-input">نص العنصر المتحدد</label>
+<textarea class="focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" id="text-input" rows="3" placeholder="اختر عنصرًا من الكارت أولًا"></textarea>
+<label for="text-color">لون النص</label>
+<input class="focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" type="color" id="text-color" value="#ffffff" />
+       
+<label for="bg-color">لون الخلفية</label>
         <input class="focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" type="color" id="bg-color" value="#6366f1" />
       </aside>
 

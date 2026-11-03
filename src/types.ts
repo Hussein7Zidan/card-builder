@@ -10,5 +10,6 @@ export type CardElement = {
 export type EditorState = {
   canvasColor: string;
   selectedId: number | null;
+   nextId: number;
   elements: CardElement[];
 };

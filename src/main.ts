@@ -12,6 +12,9 @@ const addShapeButton = document.getElementById("add-shape") as HTMLButtonElement
 const deleteButton = document.getElementById("delete-btn") as HTMLButtonElement;
 const exportButton = document.getElementById("export-png") as HTMLButtonElement;
 const statusText = document.getElementById("status") as HTMLElement;
+const exportCodeButton = document.getElementById("export-code") as HTMLButtonElement;
+const codeOutput = document.getElementById("code-output") as HTMLTextAreaElement;
+const copyButton = document.getElementById("copy-code") as HTMLButtonElement;
 
 type DragInfo = {
   id: number;
@@ -177,6 +180,32 @@ window.addEventListener("pointercancel", () => {
   drag = null;
 });
 
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function buildHtml(): string {
+  const items = state.elements
+    .map((element) => {
+      const position = `position: absolute; left: ${element.x}px; top: ${element.y}px;`;
+
+      if (element.kind === "shape") {
+        return `  <div style="${position} width: 64px; height: 64px; background-color: ${element.color};"></div>`;
+      }
+
+      return `  <div style="${position} padding: 0 4px; color: ${element.color};">${escapeHtml(element.text)}</div>`;
+    })
+    .join("\n");
+
+  const size = `width: ${card.clientWidth}px; height: ${card.clientHeight}px;`;
+  const box = `position: relative; ${size} background-color: ${state.canvasColor}; border-radius: 16px; overflow: hidden;`;
+
+  return `<div style="${box}">\n${items}\n</div>`;
+}
 
 async function exportPng(): Promise<void> {
   exportButton.disabled = true;
@@ -203,5 +232,22 @@ async function exportPng(): Promise<void> {
 }
 
 exportButton.addEventListener("click", exportPng);
+
+
+exportCodeButton.addEventListener("click", () => {
+  codeOutput.value = buildHtml();
+  codeOutput.classList.remove("hidden");
+  copyButton.classList.remove("hidden");
+});
+
+copyButton.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(codeOutput.value);
+    statusText.textContent = "تم نسخ الكود ✅";
+  } catch (error) {
+    console.error(error);
+    statusText.textContent = "تعذّر النسخ، انسخ الكود يدويًا ❌";
+  }
+});
 
 render();

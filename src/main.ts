@@ -1,6 +1,7 @@
 import "./style.css";
 import { state } from "./state";
 import type { CardElement } from "./types";
+import { toPng } from "html-to-image";
 
 const textInput = document.getElementById("text-input") as HTMLTextAreaElement;
 const textColorInput = document.getElementById("text-color") as HTMLInputElement;
@@ -9,6 +10,8 @@ const card = document.getElementById("card") as HTMLElement;
 const addTextButton = document.getElementById("add-text") as HTMLButtonElement;
 const addShapeButton = document.getElementById("add-shape") as HTMLButtonElement;
 const deleteButton = document.getElementById("delete-btn") as HTMLButtonElement;
+const exportButton = document.getElementById("export-png") as HTMLButtonElement;
+const statusText = document.getElementById("status") as HTMLElement;
 
 type DragInfo = {
   id: number;
@@ -173,5 +176,32 @@ window.addEventListener("pointerup", () => {
 window.addEventListener("pointercancel", () => {
   drag = null;
 });
+
+
+async function exportPng(): Promise<void> {
+  exportButton.disabled = true;
+  statusText.textContent = "جارٍ التصدير...";
+
+  try {
+    state.selectedId = null;
+    render();
+
+    const dataUrl = await toPng(card, { pixelRatio: 2 });
+
+    const link = document.createElement("a");
+    link.download = "card.png";
+    link.href = dataUrl;
+    link.click();
+
+    statusText.textContent = "تم التنزيل ✅";
+  } catch (error) {
+    console.error(error);
+    statusText.textContent = "حصل خطأ أثناء التصدير ❌";
+  } finally {
+    exportButton.disabled = false;
+  }
+}
+
+exportButton.addEventListener("click", exportPng);
 
 render();

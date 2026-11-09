@@ -15,6 +15,10 @@
         <h1 class="text-3xl font-bold text-indigo-600  transition hover:shadow-xl hover:-translate-y-1">Card Builder</h1>
         <h2>لوحة التحكم</h2>
         <div class="flex gap-2">
+          <label for="template-select">القوالب الجاهزة</label>
+<select id="template-select" class="w-full rounded-lg border border-slate-300 p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+  <option value="">اختر قالبًا...</option>
+</select>
            <button type="button" id="add-text" class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">+ نص</button>
   <button type="button" id="add-shape" class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">+ شكل</button>
   <button type="button" id="delete-btn" class="rounded-lg bg-rose-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-40" disabled>حذف</button>

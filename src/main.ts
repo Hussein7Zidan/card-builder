@@ -6,6 +6,9 @@ import { toPng } from "html-to-image";
 import { buildHtml } from "./exportHtml";
 import { saveState, loadState, clearSavedState } from "./storage";
 
+import { templates } from "./templates";
+import type { Template } from "./templates";
+
 const textInput = document.getElementById("text-input") as HTMLTextAreaElement;
 const textColorInput = document.getElementById("text-color") as HTMLInputElement;
 const colorInput = document.getElementById("bg-color") as HTMLInputElement;
@@ -19,6 +22,7 @@ const exportCodeButton = document.getElementById("export-code") as HTMLButtonEle
 const codeOutput = document.getElementById("code-output") as HTMLTextAreaElement;
 const copyButton = document.getElementById("copy-code") as HTMLButtonElement;
 const resetButton = document.getElementById("reset-btn") as HTMLButtonElement;
+const templateSelect = document.getElementById("template-select") as HTMLSelectElement;
 
 const saved = loadState();
 if (saved) {
@@ -43,6 +47,7 @@ function getSelected(): CardElement | undefined {
 }
 
 function syncPanel(): void {
+    colorInput.value = state.canvasColor;
   const selected = getSelected();
 
   textInput.disabled = !selected || selected.kind === "shape";
@@ -279,6 +284,32 @@ resetButton.addEventListener("click", () => {
   if (!confirm("متأكد إنك عايز تمسح التصميم وترجع للبداية؟")) return;
   clearSavedState();
   location.reload();
+});
+
+
+templates.forEach((template, index) => {
+  const option = document.createElement("option");
+  option.value = String(index);
+  option.textContent = template.name;
+  templateSelect.appendChild(option);
+});
+
+function applyTemplate(template: Template): void {
+  Object.assign(state, structuredClone(template.state));
+  state.selectedId = null;
+  render();
+}
+
+templateSelect.addEventListener("change", () => {
+  if (templateSelect.value === "") return;
+
+  const template = templates[Number(templateSelect.value)];
+  if (!template) return;
+
+  if (confirm("ده هيستبدل تصميمك الحالي. تكمل؟")) {
+    applyTemplate(template);
+  }
+  templateSelect.value = "";
 });
 
 render();

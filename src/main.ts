@@ -1,13 +1,12 @@
-
 import "./style.css";
 import { state } from "./state";
-import type { CardElement } from "./types";
+import type { CardElement, EditorState } from "./types";
 import { toPng } from "html-to-image";
 import { buildHtml } from "./exportHtml";
 import { saveState, loadState, clearSavedState } from "./storage";
-
 import { templates } from "./templates";
 import type { Template } from "./templates";
+import { pushHistory, undo, redo, canUndo, canRedo } from "./history";
 
 const textInput = document.getElementById("text-input") as HTMLTextAreaElement;
 const textColorInput = document.getElementById("text-color") as HTMLInputElement;
@@ -23,6 +22,8 @@ const codeOutput = document.getElementById("code-output") as HTMLTextAreaElement
 const copyButton = document.getElementById("copy-code") as HTMLButtonElement;
 const resetButton = document.getElementById("reset-btn") as HTMLButtonElement;
 const templateSelect = document.getElementById("template-select") as HTMLSelectElement;
+const undoButton = document.getElementById("undo-btn") as HTMLButtonElement;
+const redoButton = document.getElementById("redo-btn") as HTMLButtonElement;
 
 const saved = loadState();
 if (saved) {
@@ -34,6 +35,7 @@ type DragInfo = {
   id: number;
   offsetX: number;
   offsetY: number;
+  moved: boolean;
 };
 
 let drag: DragInfo | null = null;
@@ -47,12 +49,14 @@ function getSelected(): CardElement | undefined {
 }
 
 function syncPanel(): void {
-    colorInput.value = state.canvasColor;
-  const selected = getSelected();
+  colorInput.value = state.canvasColor;
 
+  const selected = getSelected();
   textInput.disabled = !selected || selected.kind === "shape";
   textColorInput.disabled = !selected;
   deleteButton.disabled = !selected;
+  undoButton.disabled = !canUndo();
+  redoButton.disabled = !canRedo();
 
   if (selected) {
     textInput.value = selected.text;
@@ -68,10 +72,8 @@ function render(): void {
 
   for (const element of state.elements) {
     const node = document.createElement("div");
-
     node.className = "absolute cursor-grab select-none touch-none rounded px-1";
     node.dataset.id = String(element.id);
-
     node.style.left = `${element.x}px`;
     node.style.top = `${element.y}px`;
 
@@ -90,13 +92,12 @@ function render(): void {
 
     node.addEventListener("pointerdown", (event) => {
       const rect = card.getBoundingClientRect();
-
       drag = {
         id: element.id,
         offsetX: event.clientX - rect.left - element.x,
         offsetY: event.clientY - rect.top - element.y,
+        moved: false,
       };
-
       state.selectedId = element.id;
       render();
     });
@@ -105,10 +106,17 @@ function render(): void {
   }
 
   syncPanel();
-    saveState(state);
+  saveState(state);
+}
+
+function restore(restored: EditorState | null): void {
+  if (!restored) return;
+  Object.assign(state, restored);
+  render();
 }
 
 function addText(): void {
+  pushHistory(state);
   const element: CardElement = {
     id: state.nextId,
     kind: "text",
@@ -117,15 +125,14 @@ function addText(): void {
     y: 24,
     color: "#ffffff",
   };
-
   state.nextId += 1;
   state.elements.push(element);
   state.selectedId = element.id;
-
   render();
 }
 
 function addShape(): void {
+  pushHistory(state);
   const element: CardElement = {
     id: state.nextId,
     kind: "shape",
@@ -134,101 +141,26 @@ function addShape(): void {
     y: 24,
     color: "#fbbf24",
   };
-
   state.nextId += 1;
   state.elements.push(element);
   state.selectedId = element.id;
-
   render();
 }
 
 function deleteSelected(): void {
   if (state.selectedId === null) return;
-
-  state.elements = state.elements.filter(
-    (el) => el.id !== state.selectedId
-  );
-
+  pushHistory(state);
+  state.elements = state.elements.filter((el) => el.id !== state.selectedId);
   state.selectedId = null;
   render();
 }
 
-addTextButton.addEventListener("click", addText);
-addShapeButton.addEventListener("click", addShape);
-deleteButton.addEventListener("click", deleteSelected);
-
-textInput.addEventListener("input", () => {
-  const selected = getSelected();
-  if (!selected || selected.kind !== "text") return;
-
-  selected.text = textInput.value;
+function applyTemplate(template: Template): void {
+  pushHistory(state);
+  Object.assign(state, structuredClone(template.state));
+  state.selectedId = null;
   render();
-});
-
-textColorInput.addEventListener("input", () => {
-  const selected = getSelected();
-  if (!selected) return;
-
-  selected.color = textColorInput.value;
-  render();
-});
-
-colorInput.addEventListener("input", () => {
-  state.canvasColor = colorInput.value;
-  render();
-});
-
-card.addEventListener("pointerdown", (event) => {
-  if (event.target === card) {
-    state.selectedId = null;
-    render();
-  }
-});
-
-window.addEventListener("pointermove", (event) => {
-  if (!drag) return;
-
-  const current = drag;
-
-  const element = state.elements.find(
-    (el) => el.id === current.id
-  );
-
-  if (!element) return;
-
-  const node = card.querySelector<HTMLElement>(
-    `[data-id="${current.id}"]`
-  );
-
-  if (!node) return;
-
-  const rect = card.getBoundingClientRect();
-
-  const maxX = card.clientWidth - node.offsetWidth;
-  const maxY = card.clientHeight - node.offsetHeight;
-
-  element.x = clamp(
-    Math.round(event.clientX - rect.left - current.offsetX),
-    0,
-    maxX
-  );
-
-  element.y = clamp(
-    Math.round(event.clientY - rect.top - current.offsetY),
-    0,
-    maxY
-  );
-
-  render();
-});
-
-window.addEventListener("pointerup", () => {
-  drag = null;
-});
-
-window.addEventListener("pointercancel", () => {
-  drag = null;
-});
+}
 
 async function exportPng(): Promise<void> {
   exportButton.disabled = true;
@@ -238,12 +170,9 @@ async function exportPng(): Promise<void> {
     state.selectedId = null;
     render();
 
-    const dataUrl = await toPng(card, {
-      pixelRatio: 2,
-    });
+    const dataUrl = await toPng(card, { pixelRatio: 2 });
 
     const link = document.createElement("a");
-
     link.download = "card.png";
     link.href = dataUrl;
     link.click();
@@ -257,15 +186,57 @@ async function exportPng(): Promise<void> {
   }
 }
 
+templates.forEach((template, index) => {
+  const option = document.createElement("option");
+  option.value = String(index);
+  option.textContent = template.name;
+  templateSelect.appendChild(option);
+});
+
+templateSelect.addEventListener("change", () => {
+  if (templateSelect.value === "") return;
+
+  const template = templates[Number(templateSelect.value)];
+  if (!template) return;
+
+  if (confirm("ده هيستبدل تصميمك الحالي. تكمل؟")) {
+    applyTemplate(template);
+  }
+  templateSelect.value = "";
+});
+
+addTextButton.addEventListener("click", addText);
+addShapeButton.addEventListener("click", addShape);
+deleteButton.addEventListener("click", deleteSelected);
 exportButton.addEventListener("click", exportPng);
+undoButton.addEventListener("click", () => restore(undo(state)));
+redoButton.addEventListener("click", () => restore(redo(state)));
+
+textInput.addEventListener("focus", () => pushHistory(state));
+textColorInput.addEventListener("focus", () => pushHistory(state));
+colorInput.addEventListener("focus", () => pushHistory(state));
+
+textInput.addEventListener("input", () => {
+  const selected = getSelected();
+  if (!selected) return;
+  selected.text = textInput.value;
+  render();
+});
+
+textColorInput.addEventListener("input", () => {
+  const selected = getSelected();
+  if (!selected) return;
+  selected.color = textColorInput.value;
+  render();
+});
+
+colorInput.addEventListener("input", () => {
+  state.canvasColor = colorInput.value;
+  render();
+});
 
 exportCodeButton.addEventListener("click", () => {
-  codeOutput.value = buildHtml(
-    state,
-    card.clientWidth,
-    card.clientHeight
-  );
-
+  codeOutput.value = buildHtml(state, card.clientWidth, card.clientHeight);
   codeOutput.classList.remove("hidden");
   copyButton.classList.remove("hidden");
 });
@@ -286,30 +257,58 @@ resetButton.addEventListener("click", () => {
   location.reload();
 });
 
-
-templates.forEach((template, index) => {
-  const option = document.createElement("option");
-  option.value = String(index);
-  option.textContent = template.name;
-  templateSelect.appendChild(option);
+card.addEventListener("pointerdown", (event) => {
+  if (event.target === card) {
+    state.selectedId = null;
+    render();
+  }
 });
 
-function applyTemplate(template: Template): void {
-  Object.assign(state, structuredClone(template.state));
-  state.selectedId = null;
-  render();
-}
+window.addEventListener("pointermove", (event) => {
+  if (!drag) return;
+  const current = drag;
+  const element = state.elements.find((el) => el.id === current.id);
+  if (!element) return;
 
-templateSelect.addEventListener("change", () => {
-  if (templateSelect.value === "") return;
+  const node = card.querySelector<HTMLElement>(`[data-id="${current.id}"]`);
+  if (!node) return;
 
-  const template = templates[Number(templateSelect.value)];
-  if (!template) return;
-
-  if (confirm("ده هيستبدل تصميمك الحالي. تكمل؟")) {
-    applyTemplate(template);
+  if (!current.moved) {
+    pushHistory(state);
+    current.moved = true;
   }
-  templateSelect.value = "";
+
+  const rect = card.getBoundingClientRect();
+  const maxX = card.clientWidth - node.offsetWidth;
+  const maxY = card.clientHeight - node.offsetHeight;
+
+  element.x = clamp(Math.round(event.clientX - rect.left - current.offsetX), 0, maxX);
+  element.y = clamp(Math.round(event.clientY - rect.top - current.offsetY), 0, maxY);
+  render();
+});
+
+window.addEventListener("pointerup", () => {
+  drag = null;
+});
+
+window.addEventListener("pointercancel", () => {
+  drag = null;
+});
+
+window.addEventListener("keydown", (event) => {
+  if (!(event.ctrlKey || event.metaKey)) return;
+
+  const target = event.target;
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return;
+
+  const key = event.key.toLowerCase();
+  if (key === "z" && !event.shiftKey) {
+    event.preventDefault();
+    restore(undo(state));
+  } else if (key === "y" || (key === "z" && event.shiftKey)) {
+    event.preventDefault();
+    restore(redo(state));
+  }
 });
 
 render();

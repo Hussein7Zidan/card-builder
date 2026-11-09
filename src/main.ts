@@ -1,7 +1,10 @@
+
 import "./style.css";
 import { state } from "./state";
 import type { CardElement } from "./types";
 import { toPng } from "html-to-image";
+import { buildHtml } from "./exportHtml";
+import { saveState, loadState, clearSavedState } from "./storage";
 
 const textInput = document.getElementById("text-input") as HTMLTextAreaElement;
 const textColorInput = document.getElementById("text-color") as HTMLInputElement;
@@ -15,6 +18,13 @@ const statusText = document.getElementById("status") as HTMLElement;
 const exportCodeButton = document.getElementById("export-code") as HTMLButtonElement;
 const codeOutput = document.getElementById("code-output") as HTMLTextAreaElement;
 const copyButton = document.getElementById("copy-code") as HTMLButtonElement;
+const resetButton = document.getElementById("reset-btn") as HTMLButtonElement;
+
+const saved = loadState();
+if (saved) {
+  Object.assign(state, saved);
+  state.selectedId = null;
+}
 
 type DragInfo = {
   id: number;
@@ -34,6 +44,7 @@ function getSelected(): CardElement | undefined {
 
 function syncPanel(): void {
   const selected = getSelected();
+
   textInput.disabled = !selected || selected.kind === "shape";
   textColorInput.disabled = !selected;
   deleteButton.disabled = !selected;
@@ -52,8 +63,10 @@ function render(): void {
 
   for (const element of state.elements) {
     const node = document.createElement("div");
+
     node.className = "absolute cursor-grab select-none touch-none rounded px-1";
     node.dataset.id = String(element.id);
+
     node.style.left = `${element.x}px`;
     node.style.top = `${element.y}px`;
 
@@ -72,11 +85,13 @@ function render(): void {
 
     node.addEventListener("pointerdown", (event) => {
       const rect = card.getBoundingClientRect();
+
       drag = {
         id: element.id,
         offsetX: event.clientX - rect.left - element.x,
         offsetY: event.clientY - rect.top - element.y,
       };
+
       state.selectedId = element.id;
       render();
     });
@@ -85,6 +100,7 @@ function render(): void {
   }
 
   syncPanel();
+    saveState(state);
 }
 
 function addText(): void {
@@ -96,9 +112,11 @@ function addText(): void {
     y: 24,
     color: "#ffffff",
   };
+
   state.nextId += 1;
   state.elements.push(element);
   state.selectedId = element.id;
+
   render();
 }
 
@@ -111,15 +129,21 @@ function addShape(): void {
     y: 24,
     color: "#fbbf24",
   };
+
   state.nextId += 1;
   state.elements.push(element);
   state.selectedId = element.id;
+
   render();
 }
 
 function deleteSelected(): void {
   if (state.selectedId === null) return;
-  state.elements = state.elements.filter((el) => el.id !== state.selectedId);
+
+  state.elements = state.elements.filter(
+    (el) => el.id !== state.selectedId
+  );
+
   state.selectedId = null;
   render();
 }
@@ -130,7 +154,8 @@ deleteButton.addEventListener("click", deleteSelected);
 
 textInput.addEventListener("input", () => {
   const selected = getSelected();
-  if (!selected) return;
+  if (!selected || selected.kind !== "text") return;
+
   selected.text = textInput.value;
   render();
 });
@@ -138,6 +163,7 @@ textInput.addEventListener("input", () => {
 textColorInput.addEventListener("input", () => {
   const selected = getSelected();
   if (!selected) return;
+
   selected.color = textColorInput.value;
   render();
 });
@@ -156,19 +182,38 @@ card.addEventListener("pointerdown", (event) => {
 
 window.addEventListener("pointermove", (event) => {
   if (!drag) return;
+
   const current = drag;
-  const element = state.elements.find((el) => el.id === current.id);
+
+  const element = state.elements.find(
+    (el) => el.id === current.id
+  );
+
   if (!element) return;
 
-  const node = card.querySelector<HTMLElement>(`[data-id="${current.id}"]`);
+  const node = card.querySelector<HTMLElement>(
+    `[data-id="${current.id}"]`
+  );
+
   if (!node) return;
 
   const rect = card.getBoundingClientRect();
+
   const maxX = card.clientWidth - node.offsetWidth;
   const maxY = card.clientHeight - node.offsetHeight;
 
-  element.x = clamp(Math.round(event.clientX - rect.left - current.offsetX), 0, maxX);
-  element.y = clamp(Math.round(event.clientY - rect.top - current.offsetY), 0, maxY);
+  element.x = clamp(
+    Math.round(event.clientX - rect.left - current.offsetX),
+    0,
+    maxX
+  );
+
+  element.y = clamp(
+    Math.round(event.clientY - rect.top - current.offsetY),
+    0,
+    maxY
+  );
+
   render();
 });
 
@@ -180,33 +225,6 @@ window.addEventListener("pointercancel", () => {
   drag = null;
 });
 
-function escapeHtml(text: string): string {
-  return text
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function buildHtml(): string {
-  const items = state.elements
-    .map((element) => {
-      const position = `position: absolute; left: ${element.x}px; top: ${element.y}px;`;
-
-      if (element.kind === "shape") {
-        return `  <div style="${position} width: 64px; height: 64px; background-color: ${element.color};"></div>`;
-      }
-
-      return `  <div style="${position} padding: 0 4px; color: ${element.color};">${escapeHtml(element.text)}</div>`;
-    })
-    .join("\n");
-
-  const size = `width: ${card.clientWidth}px; height: ${card.clientHeight}px;`;
-  const box = `position: relative; ${size} background-color: ${state.canvasColor}; border-radius: 16px; overflow: hidden;`;
-
-  return `<div style="${box}">\n${items}\n</div>`;
-}
-
 async function exportPng(): Promise<void> {
   exportButton.disabled = true;
   statusText.textContent = "جارٍ التصدير...";
@@ -215,9 +233,12 @@ async function exportPng(): Promise<void> {
     state.selectedId = null;
     render();
 
-    const dataUrl = await toPng(card, { pixelRatio: 2 });
+    const dataUrl = await toPng(card, {
+      pixelRatio: 2,
+    });
 
     const link = document.createElement("a");
+
     link.download = "card.png";
     link.href = dataUrl;
     link.click();
@@ -233,9 +254,13 @@ async function exportPng(): Promise<void> {
 
 exportButton.addEventListener("click", exportPng);
 
-
 exportCodeButton.addEventListener("click", () => {
-  codeOutput.value = buildHtml();
+  codeOutput.value = buildHtml(
+    state,
+    card.clientWidth,
+    card.clientHeight
+  );
+
   codeOutput.classList.remove("hidden");
   copyButton.classList.remove("hidden");
 });
@@ -248,6 +273,12 @@ copyButton.addEventListener("click", async () => {
     console.error(error);
     statusText.textContent = "تعذّر النسخ، انسخ الكود يدويًا ❌";
   }
+});
+
+resetButton.addEventListener("click", () => {
+  if (!confirm("متأكد إنك عايز تمسح التصميم وترجع للبداية؟")) return;
+  clearSavedState();
+  location.reload();
 });
 
 render();

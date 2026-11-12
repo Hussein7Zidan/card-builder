@@ -68,12 +68,35 @@ function syncPanel(): void {
 
 function render(): void {
   card.style.backgroundColor = state.canvasColor;
-  card.replaceChildren();
 
+  let focusedId: string | undefined;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && card.contains(active)) {
+    focusedId = active.dataset.id;
+  }
+
+  card.replaceChildren();
   for (const element of state.elements) {
     const node = document.createElement("div");
     node.className = "absolute cursor-grab select-none touch-none rounded px-1";
     node.dataset.id = String(element.id);
+
+
+
+
+
+    let label = "شكل";
+    if (element.kind === "text") {
+      label = `نص: ${element.text}`;
+    }
+
+    node.tabIndex = 0;
+    node.setAttribute("role", "button");
+    node.setAttribute("aria-label", label);
+    node.setAttribute("aria-pressed", String(element.id === state.selectedId));
+    node.addEventListener("keydown", (event) => handleElementKey(event, element));
+
+
     node.style.left = `${element.x}px`;
     node.style.top = `${element.y}px`;
 
@@ -103,6 +126,10 @@ function render(): void {
     });
 
     card.appendChild(node);
+
+        if (node.dataset.id === focusedId) {
+      node.focus();
+    }
   }
 
   syncPanel();
@@ -154,7 +181,48 @@ function deleteSelected(): void {
   state.selectedId = null;
   render();
 }
+function moveElement(element: CardElement, dx: number, dy: number): void {
+  const node = card.querySelector<HTMLElement>(`[data-id="${element.id}"]`);
+  if (!node) return;
 
+  const maxX = card.clientWidth - node.offsetWidth;
+  const maxY = card.clientHeight - node.offsetHeight;
+  element.x = clamp(element.x + dx, 0, maxX);
+  element.y = clamp(element.y + dy, 0, maxY);
+}
+
+function handleElementKey(event: KeyboardEvent, element: CardElement): void {
+  let step = 4;
+  if (event.shiftKey) step = 16;
+
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    state.selectedId = element.id;
+    render();
+    return;
+  }
+
+  if (event.key === "Delete" || event.key === "Backspace") {
+    event.preventDefault();
+    state.selectedId = element.id;
+    deleteSelected();
+    return;
+  }
+
+  let dx = 0;
+  let dy = 0;
+  if (event.key === "ArrowLeft") dx = -step;
+  if (event.key === "ArrowRight") dx = step;
+  if (event.key === "ArrowUp") dy = -step;
+  if (event.key === "ArrowDown") dy = step;
+  if (dx === 0 && dy === 0) return;
+
+  event.preventDefault();
+  pushHistory(state);
+  state.selectedId = element.id;
+  moveElement(element, dx, dy);
+  render();
+}
 function applyTemplate(template: Template): void {
   pushHistory(state);
   Object.assign(state, structuredClone(template.state));
